@@ -14,7 +14,6 @@ The persistent storage of Extendible hash
 ## task2
 * 罗炜乐：
 	* data_page
-	* uint64_t hashFunc(uint64_t key);
 	* void allocNewPage();
 	* pm_bucket* getNewBucket();
 	* void freeEmptyBucket(pm_bucket* bucket);
@@ -26,6 +25,7 @@ The persistent storage of Extendible hash
 
 * 马靖成:
 	* ycsb.cpp
+	* uint64_t hashFunc(uint64_t key);
 	* void splitBucket(uint64_t bucket_id);
 	* void mergeBucket(uint64_t bucket_id);
 	* pm_bucket* getFreeBucket(uint64_t key);
