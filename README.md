@@ -13,8 +13,23 @@ The persistent storage of Extendible hash
 
 ## task2
 * 罗炜乐
+ * data_page
+ * uint64_t hashFunc(uint64_t key);
+ * void allocNewPage();
+ * pm_bucket* getNewBucket();
+ * void freeEmptyBucket(pm_bucket* bucket);
+ * void* getFreeSlot(pm_address& new_address);
+ * void extendCatalog();
+ * void recover();
+ * void mapAllPage();
+ * void selfDestory();
 
 * 马靖成
+ * ycsb.cpp
+ * void splitBucket(uint64_t bucket_id);
+ * void mergeBucket(uint64_t bucket_id);
+ * pm_bucket* getFreeBucket(uint64_t key);
+ * kv* getFreeKvSlot(pm_bucket* bucket);
 
 * 周圆：
   * PmEHash(); 
@@ -23,5 +38,4 @@ The persistent storage of Extendible hash
   * int remove(uint64_t key);
   * int update(kv kv_pair);
   * int search(uint64_t key, uint64_t& return_val);
-  * void selfDestory();
   * 写报告
