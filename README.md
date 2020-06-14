@@ -12,7 +12,7 @@ The persistent storage of Extendible hash
 * 周圆、马靖成使用FIO测试
 
 ## task2
-* 罗炜乐
+* 罗炜乐：
  * data_page
  * uint64_t hashFunc(uint64_t key);
  * void allocNewPage();
@@ -24,7 +24,7 @@ The persistent storage of Extendible hash
  * void mapAllPage();
  * void selfDestory();
 
-* 马靖成
+* 马靖成:
  * ycsb.cpp
  * void splitBucket(uint64_t bucket_id);
  * void mergeBucket(uint64_t bucket_id);
