@@ -12,4 +12,16 @@ The persistent storage of Extendible hash
 * 周圆、马靖成使用FIO测试
 
 ## task2
-* 周圆：PmEHash(); ~PmEHash(); insert(kv new_kv_pair); remove(uint64_t key); update(kv kv_pair); search(uint64_t key, uint64_t& return_val); void selfDestory();
+* 罗炜乐
+
+* 马靖成
+
+* 周圆：
+  * PmEHash(); 
+  * ~PmEHash();
+  * int insert(kv new_kv_pair);
+  * int remove(uint64_t key);
+  * int update(kv kv_pair);
+  * int search(uint64_t key, uint64_t& return_val);
+  * void selfDestory();
+  * 写报告
