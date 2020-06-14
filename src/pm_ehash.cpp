@@ -70,6 +70,23 @@ pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
 
 }
 
+pm_bucket* PmEHash::getNewBucket() {
+    if (free_list.empty()) {
+        allocNewPage();
+    }
+    pm_bucket* new_bucket = free_list.front();
+    free_list.pop();
+
+    pm_address temp = vAddr2pmAddr[new_bucket];
+    //have not set the bitmap yet
+    return new_bucket;
+}
+
+void PmEHash::freeEmptyBucket(pm_bucket* bucket) {
+
+}
+
+
 /**
  * @description: 获得空闲桶内第一个空闲的位置供键值对插入
  * @param pm_bucket* bucket
@@ -121,7 +138,15 @@ void* PmEHash::getFreeSlot(pm_address& new_address) {
  * @return: NULL
  */
 void PmEHash::allocNewPage() {
-
+    metadata->max_file_id++;
+    data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
+    pm_address temp = {metadata->max_file_id, 0};
+    for (int i = 0; i < 16; ++i) {
+        temp.offset = sizeof(pm_bucket) * i;
+        free_list.push(p->slot + i);
+        vAddr2pmAddr[p->slot + i] = temp;
+        pmAddr2vAddr[temp] = p->slot + i;
+    }
 }
 
 /**
