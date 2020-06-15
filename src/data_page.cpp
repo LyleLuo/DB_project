@@ -19,11 +19,11 @@ inline void setBitToBitmap(uint8_t * bitmap, int pos, bool flag) {
 //create a new page
 void * createNewPage(uint64_t page_id) {
     size_t map_len;
-    data_page * p = reinterpret_cast<data_page*>(pmem_map_file(std::to_string(page_id).c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+    std::string page_location = "../data/" + std::to_string(page_id);
+    data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, &map_len, NULL));
     for (int i = 0; i < DATA_PAGE_SLOT_NUM; ++i) {
         setBitToBitmap(p->bitmap, i, false);
     }
-    pmem_persist(p->bitmap, 2);
     return p;
 }
 

@@ -4,6 +4,7 @@
 #include <libpmem.h>
 #include <string>
 #include <cstdlib>
+#include <cstring>
 
 #define DATA_PAGE_SLOT_NUM 16
 // use pm_address to locate the data in the page
