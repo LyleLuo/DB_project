@@ -1,5 +1,6 @@
 #include"pm_ehash.h"
 
+	 
 /**
  * @description: construct a new instance of PmEHash in a default directory
  * @param NULL
@@ -57,8 +58,8 @@ int PmEHash::search(uint64_t key, uint64_t& return_val) {
  * @param uint64_t: 输入的键
  * @return: 返回键所属的桶号
  */
-uint64_t PmEHash::hashFunc(uint64_t key) {
-
+uint64_t PmEHash::hashFunc(uint64_t key,uint64_t depth) {
+	return key%(1<<depth);
 }
 
 /**
@@ -67,7 +68,21 @@ uint64_t PmEHash::hashFunc(uint64_t key) {
  * @return: 空闲桶的虚拟地址
  */
 pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
-
+	uint64_t bucket_id = hashFunc(key,metadata->global_depth);//求得桶号
+	uint8_t* bitmap1=catalog.buckets_virtual_address[bucket_id]->bitmap;
+	bool bit[16];
+	for(int i=0;i<16;++i){
+	bit[i]=getBitFromBitmap(bitmap1,i);
+	}
+	for(int i=0;i<15;++i){
+		if(!bit[i]){
+			return catalog.buckets_virtual_address[bucket_id];//查找15个空位中是否有空位，有则返回	
+		}
+		if(i==14 && bit[i]){//没有则分裂桶，再返回空闲桶
+			splitBucket(bucket_id);
+			getFreeBucket(key);
+		}
+	}	  
 }
 
 /**
@@ -76,7 +91,23 @@ pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
  * @return: 空闲键值对位置的虚拟地址
  */
 kv* PmEHash::getFreeKvSlot(pm_bucket* bucket) {
-
+	bool bit[16];
+	kv* result;
+	for(int i = 0; i < 16; ++i){
+		bit[i]=getBitFromBitmap(bucket->bitmap,i);
+	}
+	for(int i = 0; i < 15; i++){
+		if(!bit[i]){ //找到第一个空闲位置后返回该位置并将位图置1.
+			bit[i] = 1;
+			result = bucket->slot+i;
+			break;	
+		}
+	}
+	for(int i = 0; i < 16; i++){
+		setBitToBitmap(bucket->bitmap,i,bit[i]);
+	}
+	pmem_persist(bucket, map_len);
+	return result;
 }
 
 /**
@@ -85,7 +116,56 @@ kv* PmEHash::getFreeKvSlot(pm_bucket* bucket) {
  * @return: NULL
  */
 void PmEHash::splitBucket(uint64_t bucket_id) {
-
+	uint64_t local_depth1 = catalog.buckets_virtual_address[bucket_id]->local_depth;//先得到本地深度
+	if(local_depth1 == metadata->global_depth){  //如果本地深度等于全局深度，需要倍增列表
+		extendCatalog();//此时全局深度和catalog_size都已经发生变化
+		for(int i = 0; i < metadata->catalog_size / 2; ++i){
+			catalog.buckets_pm_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_pm_address[i];
+			catalog.buckets_virtual_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_virtual_address[i];
+			pmem_persist(catalog.buckets_pm_address[i + (1 << metadata->global_depth - 1)], map_len);
+			pmem_persist(catalog.buckets_virtual_address[i + (1 << metadata->global_depth - 1)], map_len);//持久化
+			}
+	}
+	pm_bucket* new_bucket=getFreeSlot(catalog.buckets_pm_address[bucket_id + (1 << local_depth1)]); //分裂出的新桶
+	new_bucket->local_depth = local_depth1+1; //分裂后两个桶的本地深度都+1； 
+	catalog.buckets_virtual_address[bucket_id]->local_depth += 1;
+	local_depth1++;
+	uint8_t* bitmap_old = catalog.buckets_virtual_address[bucket_id]->bitmap;
+	uint8_t* bitmap_new = new_bucket->bitmap;
+	bool bit_old[16];
+	bool bit_new[16];
+	for(int i = 0; i < 16; ++i){
+		bit_old[i] = getBitFromBitmap(bitmap_old, i);//得到位图
+		bit_new[i] = getBitFromBitmap(bitmap_new, i);
+	}
+	int count = 0;//存入分裂的空桶中的计数器
+	for(int i = 0; i < 15; ++i){
+		if(bit_old[i]){
+			if(catalog.pm_bucket[bucket_id]->kv[i].key % (1<<local_depth1)==(bucket_id+(1<<local_depth1-1))){//将旧桶中需要移动的移到新桶
+				bit_old[i] = 0;	
+				bit_new[count] = 1;
+				new_bucket->slot[count] = catalog.buckets_virtual_address[bucket_id]->slot[i];
+				count++; 
+			}
+		}					
+	}
+	for(int i=0;i<16;++i){
+		setBitToBitmap(catalog.buckets_virtual_address[bucket_id]->bitmap, i, bit_old[i]);//位图恢复
+		setBitToBitmap(new_bucket->bitmap, i, bit_new[i]);
+	}
+	catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)]=new_bucket;
+	pmem_persist(catalog.buckets_virtual_address[bucket_id], map_len);
+	pmem_persist(catalog.buckets_virtual_address[bucket_id]->slot, map_len);
+	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)], map_len);
+	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)]->slot, map_len);//持久化
+	for(int i = 0; i<metadata->catalog_size; ++i){
+		if(hashFunc(i,local_depth1)==(bucket_id + (1<<local_depth1-1))){//将所有应该指向新桶的指针都指向新桶
+			catalog.buckets_virtual_address[i]=catalog.buckets_virtual_address[bucket_id + (1 << local_depth1-1)];
+			catalog.buckets_pm_address[i]=catalog.buckets_pm_address[bucket_id + (1 << local_depth1-1)];
+			pmem_persist(catalog.buckets_pm_address[i], map_len);
+			pmem_persist(catalog.buckets_virtual_address[i], map_len);
+			} 
+	}	
 }
 
 /**
@@ -94,8 +174,27 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
  * @return: NULL
  */
 void PmEHash::mergeBucket(uint64_t bucket_id) {
-    
+    uint64_t local_depth1=catalog.buckets_virtual_address[bucket_id]->local_depth;
+    if(local_depth1>4){//当桶的深度<=4时就不合并 
+    	if(bucket_id >= (1<<local_depth1-1)){//找兄弟桶
+    		uint64_t brother_id=bucket_id-(1<<local_depth1-1);
+    	}
+    	else{
+    		uint64_t brother_id=bucket_id+(1<<local_depth1-1);
+		}
+    	if(catalog.buckets_virtual_address[brother_id]->local_depth==local_depth1){//如果兄弟桶深度相同就可以合并
+    		catalog.buckets_pm_address[bucket_id]=catalog.buckets_pm_address[brother_id];
+    		catalog.buckets_virtual_address[brother_id]->local_depth -= 1;
+    		pmem_persist(catalog.buckets_virtual_address[brother_id]->local_depth, map_len);
+    		pmem_persist(catalog.buckets_pm_address[bucket_id], map_len);
+    		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
+    		catalog.buckets_virtual_address[bucket_id]=catalog.buckets_virtual_address[brother_id];
+    		pmem_persist(catalog.buckets_virtual_address[bucket_id], map_len);
+    		freeEmptyBucket(temp);
+		}
+	}	
 }
+
 
 /**
  * @description: 对目录进行倍增，需要重新生成新的目录文件并复制旧值，然后删除旧的目录文件
