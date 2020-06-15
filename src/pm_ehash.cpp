@@ -85,6 +85,35 @@ pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
 	}	  
 }
 
+pm_bucket* PmEHash::getNewBucket() {
+    if (free_list.empty()) {
+        allocNewPage();
+    }
+    pm_bucket* new_bucket = free_list.front();
+    free_list.pop();
+
+    //set bitmap
+    pm_address temp = vAddr2pmAddr[new_bucket];
+    uint32_t pos = temp.offset / sizeof(pm_bucket);
+    temp.offset = 0;
+    data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
+    setBitToBitmap(page_virtual_address->bitmap, pos, true);
+
+    return new_bucket;
+}
+
+void PmEHash::freeEmptyBucket(pm_bucket* bucket) {
+    free_list.push(bucket);
+
+    //set bitmap
+    pm_address temp = vAddr2pmAddr[bucket];
+    uint32_t pos = temp.offset / sizeof(pm_bucket);
+    temp.offset = 0;
+    data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
+    setBitToBitmap(page_virtual_address->bitmap, pos, false);
+}
+
+
 /**
  * @description: 获得空闲桶内第一个空闲的位置供键值对插入
  * @param pm_bucket* bucket
@@ -202,7 +231,22 @@ void PmEHash::mergeBucket(uint64_t bucket_id) {
  * @return: NULL
  */
 void PmEHash::extendCatalog() {
+    //copy pm_address to mem
+    pm_address * temp_buckets_pm_address = new pm_address[metadata->catalog_size];
+    memcpy(temp_buckets_pm_address, catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+    pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 
+    //re map
+    size_t map_len;
+    catalog.buckets_pm_address = \
+        reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
+        sizeof(pm_address) * metadata->catalog_size * 2, PMEM_FILE_CREATE, 0777, &map_len, NULL));
+
+    //copy origin pm_address to new pm_address
+    memcpy(catalog.buckets_pm_address, temp_buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+    delete[] temp_buckets_pm_address;
+    pmem_persist(catalog.buckets_pm_address, metadata->catalog_size);
+    metadata->catalog_size *= 2;   
 }
 
 /**
@@ -211,7 +255,9 @@ void PmEHash::extendCatalog() {
  * @return: 新槽位的虚拟地址
  */
 void* PmEHash::getFreeSlot(pm_address& new_address) {
-
+    pm_bucket* result = getNewBucket();
+    new_address = vAddr2pmAddr[result];
+    return result;
 }
 
 /**
@@ -220,7 +266,15 @@ void* PmEHash::getFreeSlot(pm_address& new_address) {
  * @return: NULL
  */
 void PmEHash::allocNewPage() {
-
+    metadata->max_file_id++;
+    data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
+    pm_address temp = {metadata->max_file_id, 0};
+    for (int i = 0; i < 16; ++i) {
+        temp.offset = sizeof(pm_bucket) * i;
+        free_list.push(p->slot + i);
+        vAddr2pmAddr[p->slot + i] = temp;
+        pmAddr2vAddr[temp] = p->slot + i;
+    }
 }
 
 /**
