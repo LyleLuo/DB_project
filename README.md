@@ -18,6 +18,7 @@ The persistent storage of Extendible hash
 	* pm_bucket* getNewBucket();
 	* void freeEmptyBucket(pm_bucket* bucket);
 	* void* getFreeSlot(pm_address& new_address);
+	* kv* getFreeKvSlot(pm_bucket* bucket);
 	* void extendCatalog();
 	* void recover();
 	* void mapAllPage();
@@ -29,7 +30,6 @@ The persistent storage of Extendible hash
 	* void splitBucket(uint64_t bucket_id);
 	* void mergeBucket(uint64_t bucket_id);
 	* pm_bucket* getFreeBucket(uint64_t key);
-	* kv* getFreeKvSlot(pm_bucket* bucket);
 
 * 周圆：
   * PmEHash(); 
