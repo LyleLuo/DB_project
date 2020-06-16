@@ -24,7 +24,14 @@ PmEHash::~PmEHash() {
  * @return: 0 = insert successfully, -1 = fail to insert(target data with same key exist)
  */
 int PmEHash::insert(kv new_kv_pair) {
-    return 1;
+	if (search(new_kv_pair.key) == 0) return -1;    //若目标键值对已经存在，则返回-1，插入失败 
+	
+    pm_bucket* bucket = getFreeBucket(new_kv_pair.key); //找到要插入的桶 
+    kv* free_place = getFreeKvSlot(bucket);              //找到桶中第一个空槽 
+    *free_place = new_kv_pair;
+    persit(free_place);
+    bucket.bitmap = 1;                             //位图置为1 
+    return 0;
 }
 
 /**
