@@ -77,7 +77,7 @@ int PmEHash::search(uint64_t key, uint64_t& return_val) {
  * @param uint64_t: 输入的键
  * @return: 返回键所属的桶号
  */
-uint64_t PmEHash::hashFunc(uint64_t key，uint64_t depth) {
+uint64_t PmEHash::hashFunc(uint64_t key, uint64_t depth) {
 	return key % (1 << depth);
 }
 
@@ -87,7 +87,7 @@ uint64_t PmEHash::hashFunc(uint64_t key，uint64_t depth) {
  * @return: 空闲桶的虚拟地址
  */
 pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
-	uint64_t bucket_id = hashFunc(key);//求得桶号
+	uint64_t bucket_id = hashFunc(key, metadata->global_depth);//求得桶号
 	uint8_t* bitmap1 = catalog.buckets_virtual_address[bucket_id]->bitmap;
 	bool bit[16];
 	for(int i = 0; i < 16; ++i){
@@ -181,7 +181,7 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 	int count = 0;//存入分裂的空桶中的计数器
 	for(int i = 0; i < 15; ++i){
 		if(bit_old[i]){
-			if(catalog.pm_bucket[bucket_id]->kv[i].key % (1<<local_depth1)==(bucket_id+(1<<local_depth1-1))){//将旧桶中需要移动的移到新桶
+			if(catalog.buckets_virtual_address[bucket_id]->slot[i].key % (1<<local_depth1) == (bucket_id+(1<<local_depth1-1))){//将旧桶中需要移动的移到新桶
 				bit_old[i] = 0;	
 				bit_new[count] = 1;
 				new_bucket->slot[count] = catalog.buckets_virtual_address[bucket_id]->slot[i];
@@ -195,18 +195,15 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 	}
 	catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)] = new_bucket;
 	pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
-	//pmem_persist(catalog.buckets_virtual_address[bucket_id]->slot, map_len);
 	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)], sizeof(pm_bucket));
-	//pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)]->slot, map_len);//持久化
 	for(int i = 0; i<metadata->catalog_size; ++i){
 		if(hashFunc(i,local_depth1)==(bucket_id + (1<<local_depth1-1))){//将所有应该指向新桶的指针都指向新桶
 			catalog.buckets_virtual_address[i]=catalog.buckets_virtual_address[bucket_id + (1 << local_depth1-1)];
 			catalog.buckets_pm_address[i]=catalog.buckets_pm_address[bucket_id + (1 << local_depth1-1)];
 		}
-			pmem_persist(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
-			//pmem_persist(catalog.buckets_virtual_address[i], map_len);
-			 
-	}	
+	}
+	pmem_persist(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);		 
+
 }
 
 /**
@@ -216,18 +213,19 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
  */
 void PmEHash::mergeBucket(uint64_t bucket_id) {
     uint64_t local_depth1=catalog.buckets_virtual_address[bucket_id]->local_depth;
-    if(local_depth1>1){//当桶的深度<=1时就不合并 
+    if(local_depth1 > 1){//当桶的深度<=1时就不合并 
+		uint64_t brother_id;
     	if(bucket_id >= (1<<local_depth1-1)){//找兄弟桶
-    		uint64_t brother_id=bucket_id-(1<<local_depth1-1);
+    		brother_id=bucket_id-(1<<local_depth1-1);
     	}
     	else{
-    		uint64_t brother_id=bucket_id+(1<<local_depth1-1);
+    		brother_id=bucket_id+(1<<local_depth1-1);
 		}
     	if(catalog.buckets_virtual_address[brother_id]->local_depth == local_depth1){//如果兄弟桶深度相同就可以合并
     		catalog.buckets_pm_address[bucket_id] = catalog.buckets_pm_address[brother_id];
     		catalog.buckets_virtual_address[brother_id]->local_depth -= 1;
     		pmem_persist(catalog.buckets_virtual_address[brother_id], sizeof(pm_bucket));
-    		pmem_persist(catalog.buckets_pm_address[bucket_id], sizeof(pm_bucket));
+    		pmem_persist(catalog.buckets_pm_address + bucket_id, sizeof(pm_bucket));
     		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
     		catalog.buckets_virtual_address[bucket_id] = catalog.buckets_virtual_address[brother_id];
     		pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
@@ -290,7 +288,7 @@ void* PmEHash::getFreeSlot(pm_address& new_address) {
 void PmEHash::allocNewPage() {
     metadata->max_file_id++;
     data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
-	page_list.push_back(p);
+	page_list[metadata->max_file_id] = p;
     pm_address temp = {metadata->max_file_id, 0};
     for (int i = 0; i < 16; ++i) {
         temp.offset = sizeof(pm_bucket) * i;
@@ -307,10 +305,19 @@ void PmEHash::allocNewPage() {
  */
 void PmEHash::recover() {
 	size_t map_len;
+	//map metadata
 	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+	//map catalog
 	catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
         sizeof(pm_address) * metadata->catalog_size, PMEM_FILE_CREATE, 0777, &map_len, NULL));
+
+	mapAllPage();
+
+	//set virtual address
 	catalog.buckets_virtual_address = new pm_bucket*[metadata->catalog_size];
+	for (uint64_t i = 0; i < metadata->catalog_size; ++i) {
+		catalog.buckets_virtual_address[i] = pmAddr2vAddr[catalog.buckets_pm_address[i]];
+	}
   
 }
 
@@ -320,7 +327,25 @@ void PmEHash::recover() {
  * @return: NULL
  */
 void PmEHash::mapAllPage() {
+	size_t map_len;
+	//map page
+	for (uint64_t i = 1; i <= metadata->max_file_id; ++i) {
+		std::string page_location = "../data/" + std::to_string(i);
+    	data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+		page_list[i] = p;
+		
+		pm_address temp = {i, 0};
+		for (int j = 0; j < 16; ++j) {
+			temp.offset = sizeof(pm_bucket) * j;
 
+			if (!getBitFromBitmap(p->bitmap, i)) {
+				free_list.push(p->slot + j);
+			}
+			vAddr2pmAddr[p->slot + j] = temp;
+			pmAddr2vAddr[temp] = p->slot + j;
+
+		}
+	}
 }
 
 /**
@@ -329,5 +354,15 @@ void PmEHash::mapAllPage() {
  * @return: NULL
  */
 void PmEHash::selfDestory() {
+	//unmap page
+	for (uint64_t i = 1; i <= metadata->max_file_id; ++i) {
+		pmem_unmap(page_list[i], sizeof(data_page));
+	}
 
+	//unmap pm_adress
+	pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+	pmem_unmap(metadata, sizeof(ehash_metadata));
+	
+	//delete all file
+    system("rm ../data/*");
 }
