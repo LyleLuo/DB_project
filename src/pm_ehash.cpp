@@ -77,8 +77,8 @@ int PmEHash::search(uint64_t key, uint64_t& return_val) {
  * @param uint64_t: 输入的键
  * @return: 返回键所属的桶号
  */
-uint64_t PmEHash::hashFunc(uint64_t key) {
-	return key % (1 << metadata->global_depth);
+uint64_t PmEHash::hashFunc(uint64_t key，uint64_t depth) {
+	return key % (1 << depth);
 }
 
 /**
@@ -162,8 +162,8 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 		for(int i = 0; i < metadata->catalog_size / 2; ++i){
 			catalog.buckets_pm_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_pm_address[i];
 			catalog.buckets_virtual_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_virtual_address[i];
-			pmem_persist(catalog.buckets_pm_address[i + (1 << metadata->global_depth - 1)], map_len);
-			pmem_persist(catalog.buckets_virtual_address[i + (1 << metadata->global_depth - 1)], map_len);//持久化
+			//pmem_persist(catalog.buckets_pm_address[i + (1 << metadata->global_depth - 1)], map_len);
+			//pmem_persist(catalog.buckets_virtual_address[i + (1 << metadata->global_depth - 1)], map_len);//持久化
 			}
 	}
 	pm_bucket* new_bucket = reinterpret_cast<pm_bucket*>(getFreeSlot(catalog.buckets_pm_address[bucket_id + (1 << local_depth1)])); //分裂出的新桶
@@ -189,22 +189,23 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 			}
 		}					
 	}
-	for(int i=0;i<16;++i){
+	for(int i = 0; i < 16; ++i){
 		setBitToBitmap(catalog.buckets_virtual_address[bucket_id]->bitmap, i, bit_old[i]);//位图恢复
 		setBitToBitmap(new_bucket->bitmap, i, bit_new[i]);
 	}
-	catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)]=new_bucket;
-	pmem_persist(catalog.buckets_virtual_address[bucket_id], map_len);
-	pmem_persist(catalog.buckets_virtual_address[bucket_id]->slot, map_len);
-	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)], map_len);
-	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)]->slot, map_len);//持久化
+	catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)] = new_bucket;
+	pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
+	//pmem_persist(catalog.buckets_virtual_address[bucket_id]->slot, map_len);
+	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)], sizeof(pm_bucket));
+	//pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)]->slot, map_len);//持久化
 	for(int i = 0; i<metadata->catalog_size; ++i){
 		if(hashFunc(i,local_depth1)==(bucket_id + (1<<local_depth1-1))){//将所有应该指向新桶的指针都指向新桶
 			catalog.buckets_virtual_address[i]=catalog.buckets_virtual_address[bucket_id + (1 << local_depth1-1)];
 			catalog.buckets_pm_address[i]=catalog.buckets_pm_address[bucket_id + (1 << local_depth1-1)];
-			pmem_persist(catalog.buckets_pm_address[i], map_len);
-			pmem_persist(catalog.buckets_virtual_address[i], map_len);
-			} 
+		}
+			pmem_persist(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+			//pmem_persist(catalog.buckets_virtual_address[i], map_len);
+			 
 	}	
 }
 
@@ -215,21 +216,21 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
  */
 void PmEHash::mergeBucket(uint64_t bucket_id) {
     uint64_t local_depth1=catalog.buckets_virtual_address[bucket_id]->local_depth;
-    if(local_depth1>4){//当桶的深度<=4时就不合并 
+    if(local_depth1>1){//当桶的深度<=1时就不合并 
     	if(bucket_id >= (1<<local_depth1-1)){//找兄弟桶
     		uint64_t brother_id=bucket_id-(1<<local_depth1-1);
     	}
     	else{
     		uint64_t brother_id=bucket_id+(1<<local_depth1-1);
 		}
-    	if(catalog.buckets_virtual_address[brother_id]->local_depth==local_depth1){//如果兄弟桶深度相同就可以合并
-    		catalog.buckets_pm_address[bucket_id]=catalog.buckets_pm_address[brother_id];
+    	if(catalog.buckets_virtual_address[brother_id]->local_depth == local_depth1){//如果兄弟桶深度相同就可以合并
+    		catalog.buckets_pm_address[bucket_id] = catalog.buckets_pm_address[brother_id];
     		catalog.buckets_virtual_address[brother_id]->local_depth -= 1;
-    		pmem_persist(catalog.buckets_virtual_address[brother_id]->local_depth, map_len);
-    		pmem_persist(catalog.buckets_pm_address[bucket_id], map_len);
+    		pmem_persist(catalog.buckets_virtual_address[brother_id], sizeof(pm_bucket));
+    		pmem_persist(catalog.buckets_pm_address[bucket_id], sizeof(pm_bucket));
     		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
-    		catalog.buckets_virtual_address[bucket_id]=catalog.buckets_virtual_address[brother_id];
-    		pmem_persist(catalog.buckets_virtual_address[bucket_id], map_len);
+    		catalog.buckets_virtual_address[bucket_id] = catalog.buckets_virtual_address[brother_id];
+    		pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
     		freeEmptyBucket(temp);
 		}
 	}	
