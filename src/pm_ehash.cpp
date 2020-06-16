@@ -24,13 +24,15 @@ PmEHash::~PmEHash() {
  * @return: 0 = insert successfully, -1 = fail to insert(target data with same key exist)
  */
 int PmEHash::insert(kv new_kv_pair) {
-	if (search(new_kv_pair.key) == 0) return -1;    //若目标键值对已经存在，则返回-1，插入失败 
+	//若目标键值对已经存在，则返回-1，插入失败 
+	if (search(new_kv_pair.key, new_kv_pair.value) == 0) {
+		return -1;
+	}    
 	
     pm_bucket* bucket = getFreeBucket(new_kv_pair.key); //找到要插入的桶 
     kv* free_place = getFreeKvSlot(bucket);              //找到桶中第一个空槽 
     *free_place = new_kv_pair;
-    persit(free_place);
-    bucket.bitmap = 1;                             //位图置为1 
+    pmem_persist(free_place, sizeof(kv));
     return 0;
 }
 
@@ -57,7 +59,17 @@ int PmEHash::update(kv kv_pair) {
  * @return: 0 = search successfully, -1 = fail to search(target data doesn't exist) 
  */
 int PmEHash::search(uint64_t key, uint64_t& return_val) {
-    return 1;
+    uint64_t bucket_id = hashFunc(key, metadata->global_depth);
+	pm_bucket* p_bucket = catalog.buckets_virtual_address[bucket_id];
+	for (int i = 0; i < 15; ++i) {
+		if (getBitFromBitmap(p_bucket->bitmap, i)) {
+			if (p_bucket->slot[i].key == key) {
+				return_val = p_bucket->slot[i].value;
+				return 0;
+			}
+		}
+	}
+	return -1;
 }
 
 /**
