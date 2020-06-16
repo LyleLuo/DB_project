@@ -299,7 +299,7 @@ void PmEHash::recover() {
 	catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
         sizeof(pm_address) * metadata->catalog_size, PMEM_FILE_CREATE, 0777, &map_len, NULL));
 	catalog.buckets_virtual_address = new pm_bucket*[metadata->catalog_size];
-
+  
 }
 
 /**
