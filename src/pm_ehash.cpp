@@ -248,6 +248,7 @@ void PmEHash::extendCatalog() {
 	catalog.buckets_virtual_address = temp_buckets_virtual_address;
 
 	metadata->catalog_size *= 2;  
+	metadata->global_depth++;
 }
 
 /**
@@ -269,6 +270,7 @@ void* PmEHash::getFreeSlot(pm_address& new_address) {
 void PmEHash::allocNewPage() {
     metadata->max_file_id++;
     data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
+	page_list.push_back(p);
     pm_address temp = {metadata->max_file_id, 0};
     for (int i = 0; i < 16; ++i) {
         temp.offset = sizeof(pm_bucket) * i;
@@ -284,6 +286,11 @@ void PmEHash::allocNewPage() {
  * @return: NULL
  */
 void PmEHash::recover() {
+	size_t map_len;
+	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+	catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
+        sizeof(pm_address) * metadata->catalog_size, PMEM_FILE_CREATE, 0777, &map_len, NULL));
+	catalog.buckets_virtual_address = new pm_bucket*[metadata->catalog_size];
 
 }
 
