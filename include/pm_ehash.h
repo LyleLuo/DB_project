@@ -73,7 +73,7 @@ private:
     map<pm_bucket*, pm_address> vAddr2pmAddr;       // map virtual address to pm_address, used to find specific pm_address
     map<pm_address, pm_bucket*> pmAddr2vAddr;       // map pm_address to virtual address, used to find specific virtual address
     
-    uint64_t hashFunc(uint64_t key);
+    uint64_t hashFunc(uint64_t key,uint64_t depth);
 
     pm_bucket* getFreeBucket(uint64_t key);
     pm_bucket* getNewBucket();
