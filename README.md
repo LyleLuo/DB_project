@@ -23,6 +23,8 @@ The persistent storage of Extendible hash
 	* void recover();
 	* void mapAllPage();
 	* void selfDestory();
+	* PmEHash(); 
+  	* ~PmEHash();
 
 * 马靖成:
 	* ycsb.cpp
@@ -32,8 +34,6 @@ The persistent storage of Extendible hash
 	* pm_bucket* getFreeBucket(uint64_t key);
 
 * 周圆：
-  * PmEHash(); 
-  * ~PmEHash();
   * int insert(kv new_kv_pair);
   * int remove(uint64_t key);
   * int update(kv kv_pair);
