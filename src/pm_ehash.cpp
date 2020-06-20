@@ -7,7 +7,7 @@
  * @return: new instance of PmEHash
  */
 PmEHash::PmEHash() {
-
+	 
 }
 /**
  * @description: persist and munmap all data in NVM
