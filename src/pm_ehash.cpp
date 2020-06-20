@@ -28,8 +28,8 @@ int PmEHash::insert(kv new_kv_pair) {
 	if (search(new_kv_pair.key, new_kv_pair.value) == 0) {
 		return -1;
 	}    
-	
-    pm_bucket* bucket = getFreeBucket(new_kv_pair.key); //找到要插入的桶 
+	//目标键值对不存在时，进行插入
+    pm_bucket* bucket = getFreeBucket(new_kv_pair.key); //找到要插入的桶，并将相应位图置为1
     kv* free_place = getFreeKvSlot(bucket);              //找到桶中第一个空槽 
     *free_place = new_kv_pair;
     pmem_persist(free_place, sizeof(kv));
@@ -42,7 +42,17 @@ int PmEHash::insert(kv new_kv_pair) {
  * @return: 0 = removing successfully, -1 = fail to remove(target data doesn't exist)
  */
 int PmEHash::remove(uint64_t key) {
-    return 1;
+    uint64_t bucket_id = hashFunc(key, metadata->global_depth);        //找到存放桶的桶号
+	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];   //找存放的bucket
+	//找到目标键值对且bitmap为1，则将bitmap置为0 
+	for(int i = 0; i < 15; ++i) {
+		if(getBitFromBitmap(bucket->bitmap, i) && bucket->slot.key == key) {
+			setBitToBitmap(bucket->bitmap, i, 0);
+			return 0;
+		}
+	}
+	//删除失败
+    return -1;
 }
 /**
  * @description: 更新现存的键值对的值
@@ -50,7 +60,18 @@ int PmEHash::remove(uint64_t key) {
  * @return: 0 = update successfully, -1 = fail to update(target data doesn't exist)
  */
 int PmEHash::update(kv kv_pair) {
-    return 1;
+	if (search(kv_pair.key, kv_pair.value) == -1) {
+		return -1;   //找目标键值对，不存在就返回-1
+	}
+    //存在就更新目标键值对，返回0
+	uint64_t bucket_id = hashFunc(kv_pair.key, metadata->global_depth);
+	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];
+	for(int i = 0; i < 15; ++i){
+		if(bucket->slot.key = key) {
+			bucket->slot.value = kv_pair.value;
+			return 0;
+		}
+	}   
 }
 /**
  * @description: 查找目标键值对数据，将返回值放在参数里的引用类型进行返回
@@ -59,14 +80,13 @@ int PmEHash::update(kv kv_pair) {
  * @return: 0 = search successfully, -1 = fail to search(target data doesn't exist) 
  */
 int PmEHash::search(uint64_t key, uint64_t& return_val) {
-    uint64_t bucket_id = hashFunc(key, metadata->global_depth);
-	pm_bucket* p_bucket = catalog.buckets_virtual_address[bucket_id];
+    uint64_t bucket_id = hashFunc(key, metadata->global_depth);        //找到目标桶的桶号
+	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];  
+	//找到目标槽
 	for (int i = 0; i < 15; ++i) {
-		if (getBitFromBitmap(p_bucket->bitmap, i)) {
-			if (p_bucket->slot[i].key == key) {
-				return_val = p_bucket->slot[i].value;
-				return 0;
-			}
+		if (getBitFromBitmap(bucket->bitmap, i) && bucket->slot[i].key == key) {
+			return_val = bucket->slot[i].value;
+			return 0;
 		}
 	}
 	return -1;
