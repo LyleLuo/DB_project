@@ -7,7 +7,36 @@
  * @return: new instance of PmEHash
  */
 PmEHash::PmEHash() {
-	 
+	//judge if exist metadata
+	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE | PMEM_FILE_EXCL, 0777, nullptr, nullptr));
+	if (metadata == nullptr) {
+		recover();
+	}
+	else {
+		metadata->catalog_size = DEFAULT_CATALOG_SIZE;
+		metadata->global_depth = 4;
+		metadata->max_file_id = 0;
+		allocNewPage();
+		pm_bucket* first_page = getNewBucket();
+		pm_bucket* second_page = getNewBucket();
+		first_page->local_depth = 1;
+		second_page->local_depth = 1;
+
+		catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
+        	sizeof(pm_address) * DEFAULT_CATALOG_SIZE, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
+		catalog.buckets_virtual_address = new pm_bucket*[DEFAULT_CATALOG_SIZE];
+		for (int i = 0; i < 16; ++i) {
+			if (i % 2) {
+				catalog.buckets_pm_address[i] = vAddr2pmAddr[first_page];
+				catalog.buckets_virtual_address[i] = first_page;
+			}
+			else {
+				catalog.buckets_pm_address[i] = vAddr2pmAddr[second_page];
+				catalog.buckets_virtual_address[i] = second_page;
+			}
+		}
+		pmem_persist(catalog.buckets_pm_address, sizeof(pm_address) * DEFAULT_CATALOG_SIZE);
+	}
 }
 /**
  * @description: persist and munmap all data in NVM
@@ -15,7 +44,16 @@ PmEHash::PmEHash() {
  * @return: NULL
  */
 PmEHash::~PmEHash() {
+	if (!page_list.empty()) {
+		//unmap page
+		for (uint64_t i = 1; i <= metadata->max_file_id; ++i) {
+			pmem_unmap(page_list[i], sizeof(data_page));
+		}
 
+		//unmap pm_adress
+		pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+		pmem_unmap(metadata, sizeof(ehash_metadata));
+	}
 }
 
 /**
@@ -46,7 +84,7 @@ int PmEHash::remove(uint64_t key) {
 	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];   //找存放的bucket
 	//找到目标键值对且bitmap为1，则将bitmap置为0 
 	for(int i = 0; i < 15; ++i) {
-		if(getBitFromBitmap(bucket->bitmap, i) && bucket->slot.key == key) {
+		if(getBitFromBitmap(bucket->bitmap, i) && bucket->slot[i].key == key) {
 			setBitToBitmap(bucket->bitmap, i, 0);
 			return 0;
 		}
@@ -67,8 +105,8 @@ int PmEHash::update(kv kv_pair) {
 	uint64_t bucket_id = hashFunc(kv_pair.key, metadata->global_depth);
 	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];
 	for(int i = 0; i < 15; ++i){
-		if(bucket->slot.key = key) {
-			bucket->slot.value = kv_pair.value;
+		if(bucket->slot[i].key = kv_pair.key) {
+			bucket->slot[i].value = kv_pair.value;
 			return 0;
 		}
 	}   
@@ -136,20 +174,13 @@ pm_bucket* PmEHash::getNewBucket() {
     uint32_t pos = temp.offset / sizeof(pm_bucket);
     temp.offset = 0;
     data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
-    setBitToBitmap(page_virtual_address->bitmap, pos, true);
+    setBitToBitmap(page_virtual_address->bitmap, pos, false);
 
     return new_bucket;
 }
 
 void PmEHash::freeEmptyBucket(pm_bucket* bucket) {
     free_list.push(bucket);
-
-    //set bitmap
-    pm_address temp = vAddr2pmAddr[bucket];
-    uint32_t pos = temp.offset / sizeof(pm_bucket);
-    temp.offset = 0;
-    data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
-    setBitToBitmap(page_virtual_address->bitmap, pos, false);
 }
 
 
@@ -182,8 +213,6 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 		for(int i = 0; i < metadata->catalog_size / 2; ++i){
 			catalog.buckets_pm_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_pm_address[i];
 			catalog.buckets_virtual_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_virtual_address[i];
-			//pmem_persist(catalog.buckets_pm_address[i + (1 << metadata->global_depth - 1)], map_len);
-			//pmem_persist(catalog.buckets_virtual_address[i + (1 << metadata->global_depth - 1)], map_len);//持久化
 			}
 	}
 	pm_bucket* new_bucket = reinterpret_cast<pm_bucket*>(getFreeSlot(catalog.buckets_pm_address[bucket_id + (1 << local_depth1)])); //分裂出的新桶
@@ -267,10 +296,9 @@ void PmEHash::extendCatalog() {
     pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 
     //re map
-    size_t map_len;
     catalog.buckets_pm_address = \
         reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
-        sizeof(pm_address) * metadata->catalog_size * 2, PMEM_FILE_CREATE, 0777, &map_len, NULL));
+        sizeof(pm_address) * metadata->catalog_size * 2, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 
     //copy origin pm_address to new pm_address
     memcpy(catalog.buckets_pm_address, temp_buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
@@ -324,12 +352,11 @@ void PmEHash::allocNewPage() {
  * @return: NULL
  */
 void PmEHash::recover() {
-	size_t map_len;
 	//map metadata
-	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 	//map catalog
 	catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
-        sizeof(pm_address) * metadata->catalog_size, PMEM_FILE_CREATE, 0777, &map_len, NULL));
+        sizeof(pm_address) * metadata->catalog_size, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 
 	mapAllPage();
 
@@ -347,11 +374,10 @@ void PmEHash::recover() {
  * @return: NULL
  */
 void PmEHash::mapAllPage() {
-	size_t map_len;
 	//map page
 	for (uint64_t i = 1; i <= metadata->max_file_id; ++i) {
 		std::string page_location = "../data/" + std::to_string(i);
-    	data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+    	data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		page_list[i] = p;
 		
 		pm_address temp = {i, 0};
@@ -383,6 +409,12 @@ void PmEHash::selfDestory() {
 	pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 	pmem_unmap(metadata, sizeof(ehash_metadata));
 	
+	//clear data structure
+	page_list.clear();
+	free_list = queue<pm_bucket*>();
+	pmAddr2vAddr.clear();
+	vAddr2pmAddr.clear();
+
 	//delete all file
     system("rm ../data/*");
 }
