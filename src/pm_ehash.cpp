@@ -1,14 +1,35 @@
 #include"pm_ehash.h"
 
-	 
+using std::string;
+
+bool operator < (const pm_address &a, const pm_address&b) {
+	if (a.fileId < b.fileId) {
+		return true;
+	}
+	else if (a.fileId > b.fileId) {
+		return false;
+	}
+	else {
+		if (a.offset < b.offset) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}	
+}
+
 /**
  * @description: construct a new instance of PmEHash in a default directory
  * @param NULL
  * @return: new instance of PmEHash
  */
 PmEHash::PmEHash() {
+	string metadata_location = string(PM_EHASH_DIRECTORY) + META_NAME;
+	string catalog_location = string(PM_EHASH_DIRECTORY) + CATALOG_NAME;
+
 	//judge if exist metadata
-	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE | PMEM_FILE_EXCL, 0777, nullptr, nullptr));
+	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file(metadata_location.c_str(), sizeof(ehash_metadata), PMEM_FILE_CREATE | PMEM_FILE_EXCL, 0777, nullptr, nullptr));
 	if (metadata == nullptr) {
 		recover();
 	}
@@ -22,7 +43,7 @@ PmEHash::PmEHash() {
 		first_page->local_depth = 1;
 		second_page->local_depth = 1;
 
-		catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
+		catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
         	sizeof(pm_address) * DEFAULT_CATALOG_SIZE, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		catalog.buckets_virtual_address = new pm_bucket*[DEFAULT_CATALOG_SIZE];
 		for (int i = 0; i < 16; ++i) {
@@ -290,6 +311,8 @@ void PmEHash::mergeBucket(uint64_t bucket_id) {
  * @return: NULL
  */
 void PmEHash::extendCatalog() {
+	string catalog_location = string(PM_EHASH_DIRECTORY) + CATALOG_NAME;
+	
     //copy pm_address to mem
     pm_address * temp_buckets_pm_address = new pm_address[metadata->catalog_size];
     memcpy(temp_buckets_pm_address, catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
@@ -297,7 +320,7 @@ void PmEHash::extendCatalog() {
 
     //re map
     catalog.buckets_pm_address = \
-        reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
+        reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
         sizeof(pm_address) * metadata->catalog_size * 2, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 
     //copy origin pm_address to new pm_address
@@ -352,10 +375,13 @@ void PmEHash::allocNewPage() {
  * @return: NULL
  */
 void PmEHash::recover() {
+	string metadata_location = string(PM_EHASH_DIRECTORY) + META_NAME;
+	string catalog_location = string(PM_EHASH_DIRECTORY) + CATALOG_NAME;
+
 	//map metadata
-	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file("../data/pm_ehash_metadata", sizeof(ehash_metadata), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
+	metadata = reinterpret_cast<ehash_metadata*>(pmem_map_file(metadata_location.c_str(), sizeof(ehash_metadata), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 	//map catalog
-	catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file("../data/pm_ehash_catalog", \
+	catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
         sizeof(pm_address) * metadata->catalog_size, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 
 	mapAllPage();
@@ -376,7 +402,7 @@ void PmEHash::recover() {
 void PmEHash::mapAllPage() {
 	//map page
 	for (uint64_t i = 1; i <= metadata->max_file_id; ++i) {
-		std::string page_location = "../data/" + std::to_string(i);
+		std::string page_location = PM_EHASH_DIRECTORY + std::to_string(i);
     	data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		page_list[i] = p;
 		
@@ -416,5 +442,6 @@ void PmEHash::selfDestory() {
 	vAddr2pmAddr.clear();
 
 	//delete all file
-    system("rm ../data/*");
+	std::string rm_cmd = "rm " + std::string(PM_EHASH_DIRECTORY) + "*";
+    system(rm_cmd.c_str());
 }

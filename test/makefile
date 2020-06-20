@@ -91,13 +91,16 @@ libgtest.a : gtest-all.o
 libgtest_main.a : gtest-all.o gtest_main.o
 	$(AR) $(ARFLAGS) $@ $^
 
-pm_ehash.o: $(USER_DIR)/pm_ehash.cpp ../include/pm_ehash.h ../include/data_page.h
+data_page.o: $(USER_DIR)/data_page.cpp ../include/data_page.h ../include/pm_ehash_struct.h
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/data_page.cpp -I $(USER_HEADER_DIR)
+
+pm_ehash.o: $(USER_DIR)/pm_ehash.cpp $(USER_DIR)/data_page.cpp ../include/pm_ehash.h ../include/data_page.h ../include/pm_ehash_struct.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(USER_DIR)/pm_ehash.cpp -I $(USER_HEADER_DIR)
 
-$(EHASH_TEST) : pm_ehash.o ehash_test.o  $(GTEST_LIBS) | $(DATA) $(BIN) 
+$(EHASH_TEST) : pm_ehash.o ehash_test.o data_page.o $(GTEST_LIBS) | $(DATA) $(BIN) 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -L$(GTEST_LIB_DIR) -lgtest_main -lpthread $^ -lpmem -o $@
 
-ehash_test.o : ehash_test.cpp  $(USER_HEADER_DIR)/pm_ehash.h  $(GTEST_HEADERS)
+ehash_test.o : ehash_test.cpp $(USER_DIR)/data_page.cpp $(USER_HEADER_DIR)/pm_ehash.h  $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c ehash_test.cpp -I $(USER_HEADER_DIR)
 
 $(DATA):
