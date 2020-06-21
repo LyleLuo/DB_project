@@ -242,6 +242,9 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 			catalog.buckets_virtual_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_virtual_address[i];
 			}
 	}
+
+	bucket_id %= (1 << local_depth1);
+
 	pm_bucket* new_bucket = reinterpret_cast<pm_bucket*>(getFreeSlot(catalog.buckets_pm_address[bucket_id + (1 << local_depth1)])); //分裂出的新桶
 	new_bucket->local_depth = local_depth1+1; //分裂后两个桶的本地深度都+1； 
 	catalog.buckets_virtual_address[bucket_id]->local_depth += 1;
