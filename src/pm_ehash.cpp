@@ -75,8 +75,8 @@ PmEHash::~PmEHash() {
 		//unmap pm_adress
 		pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 		pmem_unmap(metadata, sizeof(ehash_metadata));
-		delete[] catalog.buckets_virtual_address;
 	}
+	delete[] catalog.buckets_virtual_address;
 }
 
 /**
@@ -440,7 +440,6 @@ void PmEHash::selfDestory() {
 	//unmap pm_adress
 	pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 	pmem_unmap(metadata, sizeof(ehash_metadata));
-	delete[] catalog.buckets_virtual_address;
 	
 	//clear data structure
 	page_list.clear();
