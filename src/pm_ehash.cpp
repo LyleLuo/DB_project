@@ -37,17 +37,18 @@ PmEHash::PmEHash() {
 		metadata->catalog_size = DEFAULT_CATALOG_SIZE;
 		metadata->global_depth = 4;
 		metadata->max_file_id = 0;
-		allocNewPage();
 		pm_bucket* first_page = getNewBucket();
 		pm_bucket* second_page = getNewBucket();
 		first_page->local_depth = 1;
 		second_page->local_depth = 1;
+		pmem_persist(first_page, sizeof(pm_bucket));
+		pmem_persist(second_page, sizeof(pm_bucket));
 
 		catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
         	sizeof(pm_address) * DEFAULT_CATALOG_SIZE, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		catalog.buckets_virtual_address = new pm_bucket*[DEFAULT_CATALOG_SIZE];
 		for (int i = 0; i < 16; ++i) {
-			if (i % 2) {
+			if (!(i % 2)) {
 				catalog.buckets_pm_address[i] = vAddr2pmAddr[first_page];
 				catalog.buckets_virtual_address[i] = first_page;
 			}
@@ -74,6 +75,7 @@ PmEHash::~PmEHash() {
 		//unmap pm_adress
 		pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 		pmem_unmap(metadata, sizeof(ehash_metadata));
+		delete[] catalog.buckets_virtual_address;
 	}
 }
 
@@ -195,7 +197,11 @@ pm_bucket* PmEHash::getNewBucket() {
     uint32_t pos = temp.offset / sizeof(pm_bucket);
     temp.offset = 0;
     data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
-    setBitToBitmap(page_virtual_address->bitmap, pos, false);
+    setBitToBitmap(page_virtual_address->bitmap, pos, true);
+
+	for (int i = 0; i < 15; ++i) {
+		setBitToBitmap(new_bucket->bitmap, i, false);
+	}
 
     return new_bucket;
 }
@@ -295,7 +301,7 @@ void PmEHash::mergeBucket(uint64_t bucket_id) {
     		catalog.buckets_pm_address[bucket_id] = catalog.buckets_pm_address[brother_id];
     		catalog.buckets_virtual_address[brother_id]->local_depth -= 1;
     		pmem_persist(catalog.buckets_virtual_address[brother_id], sizeof(pm_bucket));
-    		pmem_persist(catalog.buckets_pm_address + bucket_id, sizeof(pm_bucket));
+    		pmem_persist(catalog.buckets_pm_address + bucket_id, sizeof(pm_address));
     		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
     		catalog.buckets_virtual_address[bucket_id] = catalog.buckets_virtual_address[brother_id];
     		pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
@@ -410,7 +416,7 @@ void PmEHash::mapAllPage() {
 		for (int j = 0; j < 16; ++j) {
 			temp.offset = sizeof(pm_bucket) * j;
 
-			if (!getBitFromBitmap(p->bitmap, i)) {
+			if (!getBitFromBitmap(p->bitmap, j)) {
 				free_list.push(p->slot + j);
 			}
 			vAddr2pmAddr[p->slot + j] = temp;
@@ -434,6 +440,7 @@ void PmEHash::selfDestory() {
 	//unmap pm_adress
 	pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 	pmem_unmap(metadata, sizeof(ehash_metadata));
+	delete[] catalog.buckets_virtual_address;
 	
 	//clear data structure
 	page_list.clear();
