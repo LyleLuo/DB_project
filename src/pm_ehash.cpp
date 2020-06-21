@@ -178,6 +178,7 @@ uint64_t PmEHash::hashFunc(uint64_t key, uint64_t depth) {
 pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
 	cout << "getFreeBucket" << endl;
 	uint64_t bucket_id = hashFunc(key, metadata->global_depth);//求得桶号
+	cout << "bucket_id: " << bucket_id << endl;
 	uint8_t* bitmap1 = catalog.buckets_virtual_address[bucket_id]->bitmap;
 	bool bit[16];
 	for(int i = 0; i < 15; ++i){
@@ -256,6 +257,7 @@ kv* PmEHash::getFreeKvSlot(pm_bucket* bucket) {
 void PmEHash::splitBucket(uint64_t bucket_id) {
 	cout << "splitBucket" << endl;
 	uint64_t local_depth1 = catalog.buckets_virtual_address[bucket_id]->local_depth;//先得到本地深度
+    cout << "local_depth1: " << local_depth1 << endl;
 	if(local_depth1 == metadata->global_depth){  //如果本地深度等于全局深度，需要倍增列表
 		extendCatalog();//此时全局深度和catalog_size都已经发生变化
 		for(int i = 0; i < metadata->catalog_size / 2; ++i){
@@ -263,6 +265,7 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 			catalog.buckets_virtual_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_virtual_address[i];
 		}
 	}
+    bucket_id %= (1 << local_depth1);
 	pm_bucket* new_bucket = reinterpret_cast<pm_bucket*>(getFreeSlot(catalog.buckets_pm_address[bucket_id + (1 << local_depth1)])); //分裂出的新桶
 	new_bucket->local_depth = local_depth1+1; //分裂后两个桶的本地深度都+1； 
 	catalog.buckets_virtual_address[bucket_id]->local_depth += 1;
@@ -286,7 +289,10 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 	int count = 0;//存入分裂的空桶中的计数器
 	for(int i = 0; i < 15; ++i){
 		if(bit_old[i]){
-			if(catalog.buckets_virtual_address[bucket_id]->slot[i].key % (1<<local_depth1) == (bucket_id+(1<<local_depth1-1))){//将旧桶中需要移动的移到新桶
+			int a1 = catalog.buckets_virtual_address[bucket_id]->slot[i].key % (1<<local_depth1);
+			int b1 = bucket_id + (1 << local_depth1-1);
+			cout << "a1 :" << a1 << "  b1: " << b1 << " bucket_id: " << bucket_id << " local_depth1: " << local_depth1 << endl;
+			if(a1 == b1){//将旧桶中需要移动的移到新桶
 				bit_old[i] = 0;	
 				bit_new[count] = 1;
 				new_bucket->slot[count] = catalog.buckets_virtual_address[bucket_id]->slot[i];
