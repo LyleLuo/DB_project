@@ -10,7 +10,7 @@ TARGET = ./bin/ycsb
 
 DATA = ../data
 
-BIN = bin
+BIN = ./bin
 
 USER_HEADERS = ../include/*.h
 
@@ -34,11 +34,11 @@ pm_ehash.o: $(USER_DIR)/pm_ehash.cpp $(USER_DIR)/data_page.cpp ../include/pm_eha
 $(TARGET) : pm_ehash.o ycsb.o data_page.o
 	$(CXX) $(CXXFLAGS) -L -lpthread $^ -lpmem -o $@
 
-ehash_test.o : ycsb.cpp $(USER_DIR)/data_page.cpp $(USER_HEADER_DIR)/pm_ehash.h
+ycsb.o : ycsb.cpp $(USER_DIR)/data_page.cpp $(USER_HEADER_DIR)/pm_ehash.h
 	$(CXX) $(CXXFLAGS) -c ycsb.cpp -I $(USER_HEADER_DIR)
 
 $(DATA):
 	mkdir -p ../data
 
 $(BIN):
-	mkdir -p bin
+	mkdir -p ./bin
