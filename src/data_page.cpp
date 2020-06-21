@@ -1,4 +1,7 @@
 #include"pm_ehash.h"
+#include <iostream>
+using std::cout;
+using std::endl;
 
 //get 0-15 bit from bitmap, false repersents 0, true repersents 1
 bool getBitFromBitmap(uint8_t * bitmap, int pos) {
@@ -21,6 +24,7 @@ void * createNewPage(uint64_t page_id) {
     size_t map_len;
     std::string page_location = PM_EHASH_DIRECTORY + std::to_string(page_id);
     data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, &map_len, NULL));
+    cout << sizeof(pm_bucket) << sizeof(data_page) << endl;
     for (int i = 0; i < DATA_PAGE_SLOT_NUM; ++i) {
         setBitToBitmap(p->bitmap, i, false);
     }
