@@ -14,7 +14,7 @@ BIN = bin
 
 USER_HEADERS = ../include/*.h
 
-all : $(TARGET) $(DATA) $(BIN) 
+all :  $(DATA) $(BIN) $(TARGET)
 
 clean :
 	rm -f *.o ../data/*
