@@ -292,6 +292,7 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
  */
 void PmEHash::mergeBucket(uint64_t bucket_id) {
     uint64_t local_depth1=catalog.buckets_virtual_address[bucket_id]->local_depth;
+	bucket_id %= local_depth1;
     if(local_depth1 > 1){//当桶的深度<=1时就不合并 
 		uint64_t brother_id;
     	if(bucket_id >= (1<<local_depth1-1)){//找兄弟桶
@@ -307,8 +308,15 @@ void PmEHash::mergeBucket(uint64_t bucket_id) {
     		pmem_persist(catalog.buckets_pm_address + bucket_id, sizeof(pm_address));
     		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
     		catalog.buckets_virtual_address[bucket_id] = catalog.buckets_virtual_address[brother_id];
-    		pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
+    		//pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
     		freeEmptyBucket(temp);
+			for(int i = 0; i < metadata->catalog_size; ++i){
+				if(hashFunc(i,local_depeh1) == bucket_id){
+					catalog.buckets_virtual_address[i]=catalog.buckets_virtual_address[bucket_id];
+					catalog.buckets_pm_address[i]=catalog.buckets_pm_address[bucket_id];
+				}
+			}
+			pmem_persist(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 		}
 	}	
 }
