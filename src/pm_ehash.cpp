@@ -115,6 +115,16 @@ int PmEHash::remove(uint64_t key) {
 	for(int i = 0; i < 15; ++i) {
 		if(getBitFromBitmap(bucket->bitmap, i) && bucket->slot[i].key == key) {
 			setBitToBitmap(bucket->bitmap, i, 0);
+			bool bit[16];
+ 			for(int j = 0; j < 16; ++j){
+ 				bit[j] = getBitFromBitmap(bucket->bitmap, j);
+ 			}
+ 			for(int j = 0; j < 15; ++j){
+ 				if(bit[j])break;
+ 				if(j == 14 && !bit[j]){
+ 					mergeBucket(bucket_id);
+ 				}
+ 			} 
 			return 0;
 		}
 	}
