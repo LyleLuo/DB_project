@@ -240,7 +240,7 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 		for(int i = 0; i < metadata->catalog_size / 2; ++i){
 			catalog.buckets_pm_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_pm_address[i];
 			catalog.buckets_virtual_address[i + (1 << metadata->global_depth-1)] = catalog.buckets_virtual_address[i];
-			}
+		}
 	}
 
 	bucket_id %= (1 << local_depth1);
