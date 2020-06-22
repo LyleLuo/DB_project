@@ -110,9 +110,10 @@ TEST(InsertTest, MultipleInsert) {
 TEST(UpdateTest, MultipleUpdate) {
     PmEHash* ehash = new PmEHash;
     kv temp;
+    int result;
     for(int i = 0; i < 1000; ++i) {
     	temp.key = temp.value = i;
-    	int result = ehash->insert(temp);
+    	result = ehash->insert(temp);
     	GTEST_ASSERT_EQ(result, 0);
     }
     for(int i = 1000; i < 2000; ++i) {
@@ -144,9 +145,10 @@ TEST(SearchTest, MultipleSearch) {
 TEST(RemoveTest, MultipleRemove) {
     PmEHash* ehash = new PmEHash;
     kv temp;
+    int result;
     for(int i = 0; i < 1000; ++i) {
 	temp.key = temp.value = i;
-        int result = ehash->insert(temp);
+        result = ehash->insert(temp);
         GTEST_ASSERT_EQ(result, 0);
     }
     for(int i = 0; i < 1000; ++i) {
