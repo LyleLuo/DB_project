@@ -138,15 +138,22 @@ int PmEHash::remove(uint64_t key) {
  */
 int PmEHash::update(kv kv_pair) {
 	cout << "update" << endl;
-	if (search(kv_pair.key, kv_pair.value) == -1) {
+	uint64_t temp_val;
+	if (search(kv_pair.key, temp_val) == -1) {
 		return -1;   //找目标键值对，不存在就返回-1
 	}
     //存在就更新目标键值对，返回0
 	uint64_t bucket_id = hashFunc(kv_pair.key, metadata->global_depth);
 	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];
 	for(int i = 0; i < 15; ++i){
-		if(bucket->slot[i].key = kv_pair.key) {
+		if(bucket->slot[i].key == kv_pair.key && getBitFromBitmap(bucket->bitmap, i)) {
+			cout << "jump in" << endl;
+			cout << "kv_pair: " << kv_pair.key << kv_pair.value << endl;
+			cout << "slot: " << bucket->slot[i].key << bucket->slot[i].value << endl;
 			bucket->slot[i].value = kv_pair.value;
+			cout << "kv_pair: " << kv_pair.key << kv_pair.value << endl;
+			cout << "slot: " << bucket->slot[i].key << bucket->slot[i].value << endl;
+			pmem_persist(bucket->slot + i, sizeof(kv));
 			return 0;
 		}
 	}   

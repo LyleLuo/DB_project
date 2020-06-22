@@ -107,22 +107,56 @@ TEST(InsertTest, MultipleInsert) {
 }
 
 
-TEST(UpdateTest, MultipleUpdate) {
+TEST(UpdateTest, MultipleUpdate1) {
     PmEHash* ehash = new PmEHash;
     kv temp;
     int result;
     for(int i = 0; i < 1000; ++i) {
-    	temp.key = temp.value = i;
+    	temp.key = i;
+        temp.value = i + 2;
     	result = ehash->insert(temp);
     	GTEST_ASSERT_EQ(result, 0);
     }
-    for(int i = 1000; i < 2000; ++i) {
-	temp.value = i;
-	result = ehash->update(temp);
-        GTEST_ASSERT_EQ(result, 0);
+
+    for (int i = 0; i < 1000; ++i) {
         temp.key = i;
-        result = ehash->update(temp);
-	GTEST_ASSERT_EQ(result, -1);
+        result = ehash->search(temp.key, temp.value);
+        GTEST_ASSERT_EQ(result, 0);
+        GTEST_ASSERT_EQ(temp.value, i + 2);
+    }
+
+    for(int i = 0; i < 1000; ++i) {
+        temp.key = i;
+	    temp.value = i + 1;
+	    result = ehash->update(temp);
+        cout << i << endl;
+        GTEST_ASSERT_EQ(result, 0);
+	    result = ehash->search(temp.key, temp.value);
+        GTEST_ASSERT_EQ(result, 0);
+        GTEST_ASSERT_EQ(temp.value, i + 1);
+    }
+    for(int i = 0; i < 1000; ++i) {
+        temp.key = i;
+	    result = ehash->search(temp.key, temp.value);
+        GTEST_ASSERT_EQ(result, 0);
+        GTEST_ASSERT_EQ(temp.value, i + 1);
+    }
+}
+
+TEST(UpdateTest, MultipleUpdate2) {
+    PmEHash* ehash = new PmEHash;
+    kv temp;
+    int result;
+    for(int i = 0; i < 1000; ++i) {
+        temp.key = i;
+	    result = ehash->search(temp.key, temp.value);
+        GTEST_ASSERT_EQ(result, 0);
+        GTEST_ASSERT_EQ(temp.value, i + 1);
+    }
+    for(int i = 0; i < 1000; ++i) {
+    	temp.key = temp.value = i;
+    	result = ehash->insert(temp);
+    	GTEST_ASSERT_EQ(result, -1);
     }
     ehash->selfDestory();
 }
@@ -133,7 +167,7 @@ TEST(SearchTest, MultipleSearch) {
     int result;
     for(int i = 0; i < 1000; ++i) {
     	temp.key = temp.value = i;
-	result = ehash->insert(temp);
+	    result = ehash->insert(temp);
         uint64_t val = 0;
         result = ehash->search(i, val);
         GTEST_ASSERT_EQ(result, 0);
@@ -147,22 +181,22 @@ TEST(RemoveTest, MultipleRemove) {
     kv temp;
     int result;
     for(int i = 0; i < 1000; ++i) {
-	temp.key = temp.value = i;
+	    temp.key = temp.value = i;
         result = ehash->insert(temp);
         GTEST_ASSERT_EQ(result, 0);
     }
     for(int i = 0; i < 1000; ++i) {
-	result = ehash->remove(i);
-	GTEST_ASSERT_EQ(result, 0);
-	result = ehash->remove(i);
-	GTEST_ASSERT_EQ(result, -1);
+        result = ehash->remove(i);
+        GTEST_ASSERT_EQ(result, 0);
+        result = ehash->remove(i);
+        GTEST_ASSERT_EQ(result, -1);
     }
 	
     uint64_t val = 0;
     for(int i = 0; i < 1000; ++i) {
-	result = ehash->search(i, val);
-	GTEST_ASSERT_EQ(result, -1);
-	GTEST_ASSERT_EQ(val, 0);
+        result = ehash->search(i, val);
+        GTEST_ASSERT_EQ(result, -1);
+        GTEST_ASSERT_EQ(val, 0);
     }
     ehash->selfDestory();
 }
