@@ -363,7 +363,7 @@ void PmEHash::mergeBucket(uint64_t bucket_id) {
     		//pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
     		freeEmptyBucket(temp);
     		for(int i = 0; i < metadata->catalog_size; ++i){
-    			if((hashFunc(i,local_depeh1) == bucket_id){
+    			if(hashFunc(i,local_depth1) == bucket_id){
     				catalog.buckets_virtual_address[i]=catalog.buckets_virtual_address[bucket_id];
     				catalog.buckets_pm_address[i]=catalog.buckets_pm_address[bucket_id];
 				}
