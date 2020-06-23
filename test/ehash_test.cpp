@@ -229,7 +229,7 @@ TEST(Test, RandomTest) {
 	result = ehash->update(temp);
 	GTEST_ASSERT_EQ(result, 0);
 	result = ehash->update(temp);
-	GTEST_ASSERT_EQ(result, -1);
+	GTEST_ASSERT_EQ(result, 0); //可重复插入
     }
     for(int i = 2000; i < 5000; ++i) {
 	result = ehash->remove(i);
