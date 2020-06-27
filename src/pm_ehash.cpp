@@ -284,7 +284,7 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 				//bit_old[i] = 0;
 				setBitToBitmap(catalog.buckets_virtual_address[bucket_id]->bitmap, i, false);	
 				//bit_new[count] = 1;
-				setBitToBitmap(new_bucket->bitmap, i, true);
+				setBitToBitmap(new_bucket->bitmap, count, true);
 				new_bucket->slot[count] = catalog.buckets_virtual_address[bucket_id]->slot[i];
 				count++; 
 			}
