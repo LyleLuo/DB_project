@@ -109,16 +109,17 @@ int PmEHash::remove(uint64_t key) {
 	for(int i = 0; i < 15; ++i) {
 		if(getBitFromBitmap(bucket->bitmap, i) && bucket->slot[i].key == key) {
 			setBitToBitmap(bucket->bitmap, i, 0);
-			bool bit[16];
-			for(int j = 0; j < 16; ++j){
-				bit[j] = getBitFromBitmap(bucket->bitmap, j);
-			}
+			//bool bit[16];
 			for(int j = 0; j < 15; ++j){
+				if(getBitFromBitmap(bucket->bitmap, j))break;
+				if(j == 14 && !getBitFromBitmap(bucket->bitmap, j)) mergeBucket(bucket_id);
+			}
+			/**for(int j = 0; j < 15; ++j){
 				if(bit[j])break;
 				if(j == 14 && !bit[j]){
 					mergeBucket(bucket_id);
 				}
-			} 
+			} **/
 			return 0;
 		}
 	}
@@ -182,15 +183,15 @@ uint64_t PmEHash::hashFunc(uint64_t key, uint64_t depth) {
 pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
 	uint64_t bucket_id = hashFunc(key, metadata->global_depth);//求得桶号
 	uint8_t* bitmap1 = catalog.buckets_virtual_address[bucket_id]->bitmap;
-	bool bit[16];
-	for(int i = 0; i < 16; ++i){
+	//bool bit[16];
+	/**for(int i = 0; i < 16; ++i){
 	bit[i] = getBitFromBitmap(bitmap1, i);
-	}
+	}**/
 	for(int i = 0; i < 15; ++i){
-		if(!bit[i]){
+		if(!getBitFromBitmap(bitmap1, i)){
 			return catalog.buckets_virtual_address[bucket_id];//查找15个空位中是否有空位，有则返回	
 		}
-		if(i == 14 && bit[i]){//没有则分裂桶，再返回空闲桶
+		if(i == 14 && getBitFromBitmap(bitmap1, i)){//没有则分裂桶，再返回空闲桶
 			splitBucket(bucket_id);
 			return getFreeBucket(key);
 		}
@@ -263,27 +264,29 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
 	local_depth1++;
 	uint8_t* bitmap_old = catalog.buckets_virtual_address[bucket_id]->bitmap;
 	uint8_t* bitmap_new = new_bucket->bitmap;
-	bool bit_old[16];
+	/**bool bit_old[16];
 	bool bit_new[16];
 	for(int i = 0; i < 16; ++i){
 		bit_old[i] = getBitFromBitmap(bitmap_old, i);//得到位图
 		bit_new[i] = getBitFromBitmap(bitmap_new, i);
-	}
+	}**/
 	int count = 0;//存入分裂的空桶中的计数器
 	for(int i = 0; i < 15; ++i){
-		if(bit_old[i]){
+		if(getBitFromBitmap(bitmap_old, i)){
 			if(catalog.buckets_virtual_address[bucket_id]->slot[i].key % (1<<local_depth1) == (bucket_id+(1<<local_depth1-1))){//将旧桶中需要移动的移到新桶
-				bit_old[i] = 0;	
-				bit_new[count] = 1;
+				//bit_old[i] = 0;
+				setBitToBitmap(catalog.buckets_virtual_address[bucket_id]->bitmap, i, false);	
+				//bit_new[count] = 1;
+				setBitToBitmap(new_bucket->bitmap, i, true);
 				new_bucket->slot[count] = catalog.buckets_virtual_address[bucket_id]->slot[i];
 				count++; 
 			}
 		}					
 	}
-	for(int i = 0; i < 16; ++i){
+	/**for(int i = 0; i < 16; ++i){
 		setBitToBitmap(catalog.buckets_virtual_address[bucket_id]->bitmap, i, bit_old[i]);//位图恢复
 		setBitToBitmap(new_bucket->bitmap, i, bit_new[i]);
-	}
+	}**/
 	catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)] = new_bucket;
 	pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
 	pmem_persist(catalog.buckets_virtual_address[bucket_id+(1<<local_depth1-1)], sizeof(pm_bucket));
