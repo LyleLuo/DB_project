@@ -2,9 +2,9 @@
 The persistent storage of Extendible hash
 
 ## 成员
-* 罗炜乐
-* 马靖成
-* 周圆
+* 罗炜乐(LyleLuo)
+* 马靖成(437574680)
+* 周圆(Annecle)
 
 ## task1
 * 所有人都要配一遍环境
@@ -34,11 +34,12 @@ The persistent storage of Extendible hash
 		* 使用编译器优化
 * 马靖成:
 	* 函数实现
-		* ycsb.cpp
+		* 编写和测试ycsb.cpp
 		* uint64_t hashFunc(uint64_t key);
 		* void splitBucket(uint64_t bucket_id);
 		* void mergeBucket(uint64_t bucket_id);
 		* pm_bucket* getFreeBucket(uint64_t key);
+	* 修了mergeBucket的bug  
 
 * 周圆：
 	* 函数实现
