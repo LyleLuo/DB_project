@@ -45,7 +45,7 @@ PmEHash::PmEHash() {
 		pmem_persist(second_page, sizeof(pm_bucket));
 
 		catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
-        	sizeof(pm_address) * DEFAULT_CATALOG_SIZE, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
+        		sizeof(pm_address) * DEFAULT_CATALOG_SIZE, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		catalog.buckets_virtual_address = new pm_bucket*[DEFAULT_CATALOG_SIZE];
 		for (int i = 0; i < 16; ++i) {
 			if (!(i % 2)) {
@@ -90,11 +90,11 @@ int PmEHash::insert(kv new_kv_pair) {
 		return -1;
 	}    
 	//目标键值对不存在时，进行插入
-    pm_bucket* bucket = getFreeBucket(new_kv_pair.key); //找到要插入的桶，并将相应位图置为1
-    kv* free_place = getFreeKvSlot(bucket);              //找到桶中第一个空槽 
-    *free_place = new_kv_pair;
-    pmem_persist(free_place, sizeof(kv));
-    return 0;
+	pm_bucket* bucket = getFreeBucket(new_kv_pair.key); //找到要插入的桶，并将相应位图置为1
+	kv* free_place = getFreeKvSlot(bucket);              //找到桶中第一个空槽 
+	*free_place = new_kv_pair;
+	pmem_persist(free_place, sizeof(kv));
+	return 0;
 }
 
 /**
@@ -103,7 +103,7 @@ int PmEHash::insert(kv new_kv_pair) {
  * @return: 0 = removing successfully, -1 = fail to remove(target data doesn't exist)
  */
 int PmEHash::remove(uint64_t key) {
-    uint64_t bucket_id = hashFunc(key, metadata->global_depth);        //找到存放桶的桶号
+	uint64_t bucket_id = hashFunc(key, metadata->global_depth);        //找到存放桶的桶号
 	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];   //找存放的bucket
 	//找到目标键值对且bitmap为1，则将bitmap置为0 
 	for(int i = 0; i < 15; ++i) {
@@ -123,7 +123,7 @@ int PmEHash::remove(uint64_t key) {
 		}
 	}
 	//删除失败
-    return -1;
+	return -1;
 }
 /**
  * @description: 更新现存的键值对的值
@@ -135,7 +135,7 @@ int PmEHash::update(kv kv_pair) {
 	if (search(kv_pair.key, temp_val) == -1) {
 		return -1;   //找目标键值对，不存在就返回-1
 	}
-    //存在就更新目标键值对，返回0
+	//存在就更新目标键值对，返回0
 	uint64_t bucket_id = hashFunc(kv_pair.key, metadata->global_depth);
 	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];
 	for(int i = 0; i < 15; ++i){
@@ -153,7 +153,7 @@ int PmEHash::update(kv kv_pair) {
  * @return: 0 = search successfully, -1 = fail to search(target data doesn't exist) 
  */
 int PmEHash::search(uint64_t key, uint64_t& return_val) {
-    uint64_t bucket_id = hashFunc(key, metadata->global_depth);        //找到目标桶的桶号
+	uint64_t bucket_id = hashFunc(key, metadata->global_depth);        //找到目标桶的桶号
 	pm_bucket* bucket = catalog.buckets_virtual_address[bucket_id];  
 	//找到目标槽
 	for (int i = 0; i < 15; ++i) {
@@ -184,7 +184,7 @@ pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
 	uint8_t* bitmap1 = catalog.buckets_virtual_address[bucket_id]->bitmap;
 	bool bit[16];
 	for(int i = 0; i < 16; ++i){
-	bit[i] = getBitFromBitmap(bitmap1, i);
+		bit[i] = getBitFromBitmap(bitmap1, i);
 	}
 	for(int i = 0; i < 15; ++i){
 		if(!bit[i]){
@@ -198,35 +198,35 @@ pm_bucket* PmEHash::getFreeBucket(uint64_t key) {
 }
 
 pm_bucket* PmEHash::getNewBucket() {
-    if (free_list.empty()) {
-        allocNewPage();
-    }
-    pm_bucket* new_bucket = free_list.front();
-    free_list.pop();
+	if (free_list.empty()) {
+		allocNewPage();
+	}
+	pm_bucket* new_bucket = free_list.front();
+	free_list.pop();
 
-    //set bitmap
-    pm_address temp = vAddr2pmAddr[new_bucket];
-    uint32_t pos = temp.offset / sizeof(pm_bucket);
-    temp.offset = 0;
-    data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
-    setBitToBitmap(page_virtual_address->bitmap, pos, true);
+	//set bitmap
+	pm_address temp = vAddr2pmAddr[new_bucket];
+	uint32_t pos = temp.offset / sizeof(pm_bucket);
+	temp.offset = 0;
+	data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
+	setBitToBitmap(page_virtual_address->bitmap, pos, true);
 
 	for (int i = 0; i < 15; ++i) {
 		setBitToBitmap(new_bucket->bitmap, i, false);
 	}
 
-    return new_bucket;
+	return new_bucket;
 }
 
 void PmEHash::freeEmptyBucket(pm_bucket* bucket) {
-    free_list.push(bucket);
+	free_list.push(bucket);
 
 	//set bitmap
-    pm_address temp = vAddr2pmAddr[bucket];
-    uint32_t pos = temp.offset / sizeof(pm_bucket);
-    temp.offset = 0;
-    data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
-    setBitToBitmap(page_virtual_address->bitmap, pos, false);
+	pm_address temp = vAddr2pmAddr[bucket];
+	uint32_t pos = temp.offset / sizeof(pm_bucket);
+	temp.offset = 0;
+	data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
+	setBitToBitmap(page_virtual_address->bitmap, pos, false);
 }
 
 
@@ -310,25 +310,25 @@ void PmEHash::splitBucket(uint64_t bucket_id) {
  * @return: NULL
  */
 void PmEHash::mergeBucket(uint64_t bucket_id) {
-    uint64_t local_depth1=catalog.buckets_virtual_address[bucket_id]->local_depth;
+	uint64_t local_depth1 = catalog.buckets_virtual_address[bucket_id]->local_depth;
 	bucket_id %= local_depth1;
-    if(local_depth1 > 1){//当桶的深度<=1时就不合并 
+	if(local_depth1 > 1){//当桶的深度<=1时就不合并 
 		uint64_t brother_id;
-    	if(bucket_id >= (1<<local_depth1-1)){//找兄弟桶
-    		brother_id=bucket_id-(1<<local_depth1-1);
-    	}
-    	else{
-    		brother_id=bucket_id+(1<<local_depth1-1);
-		}
-    	if(catalog.buckets_virtual_address[brother_id]->local_depth == local_depth1){//如果兄弟桶深度相同就可以合并
-    		catalog.buckets_pm_address[bucket_id] = catalog.buckets_pm_address[brother_id];
-    		catalog.buckets_virtual_address[brother_id]->local_depth -= 1;
-    		pmem_persist(catalog.buckets_virtual_address[brother_id], sizeof(pm_bucket));
-    		pmem_persist(catalog.buckets_pm_address + bucket_id, sizeof(pm_address));
-    		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
-    		catalog.buckets_virtual_address[bucket_id] = catalog.buckets_virtual_address[brother_id];
-    		//pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
-    		freeEmptyBucket(temp);
+	if(bucket_id >= (1<<local_depth1-1)){//找兄弟桶
+		brother_id=bucket_id-(1<<local_depth1-1);
+	}
+	else{
+		brother_id=bucket_id+(1<<local_depth1-1);
+	}
+	if(catalog.buckets_virtual_address[brother_id]->local_depth == local_depth1){//如果兄弟桶深度相同就可以合并
+		catalog.buckets_pm_address[bucket_id] = catalog.buckets_pm_address[brother_id];
+		catalog.buckets_virtual_address[brother_id]->local_depth -= 1;
+		pmem_persist(catalog.buckets_virtual_address[brother_id], sizeof(pm_bucket));
+		pmem_persist(catalog.buckets_pm_address + bucket_id, sizeof(pm_address));
+		pm_bucket* temp = catalog.buckets_virtual_address[bucket_id];
+		catalog.buckets_virtual_address[bucket_id] = catalog.buckets_virtual_address[brother_id];
+		//pmem_persist(catalog.buckets_virtual_address[bucket_id], sizeof(pm_bucket));
+		freeEmptyBucket(temp);
 			for(int i = 0; i < metadata->catalog_size; ++i){
 				if(hashFunc(i,local_depth1) == bucket_id){
 					catalog.buckets_virtual_address[i]=catalog.buckets_virtual_address[bucket_id];
@@ -348,21 +348,21 @@ void PmEHash::mergeBucket(uint64_t bucket_id) {
  */
 void PmEHash::extendCatalog() {
 	string catalog_location = string(PM_EHASH_DIRECTORY) + CATALOG_NAME;
-	
-    //copy pm_address to mem
-    pm_address * temp_buckets_pm_address = new pm_address[metadata->catalog_size];
-    memcpy(temp_buckets_pm_address, catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
-    pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 
-    //re map
-    catalog.buckets_pm_address = \
-        reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
-        sizeof(pm_address) * metadata->catalog_size * 2, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
+	//copy pm_address to mem
+	pm_address * temp_buckets_pm_address = new pm_address[metadata->catalog_size];
+	memcpy(temp_buckets_pm_address, catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+	pmem_unmap(catalog.buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
 
-    //copy origin pm_address to new pm_address
-    memcpy(catalog.buckets_pm_address, temp_buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
-    delete[] temp_buckets_pm_address;
-    pmem_persist(catalog.buckets_pm_address, metadata->catalog_size); 
+	//re map
+	catalog.buckets_pm_address = \
+	reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
+	sizeof(pm_address) * metadata->catalog_size * 2, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
+
+	//copy origin pm_address to new pm_address
+	memcpy(catalog.buckets_pm_address, temp_buckets_pm_address, sizeof(pm_address) * metadata->catalog_size);
+	delete[] temp_buckets_pm_address;
+	pmem_persist(catalog.buckets_pm_address, metadata->catalog_size); 
 
 	pm_bucket** temp_buckets_virtual_address = new pm_bucket*[metadata->catalog_size * 2];
 	for (int i = 0; i < metadata->catalog_size; ++i) {
@@ -382,9 +382,9 @@ void PmEHash::extendCatalog() {
  * @return: 新槽位的虚拟地址
  */
 void* PmEHash::getFreeSlot(pm_address& new_address) {
-    pm_bucket* result = getNewBucket();
-    new_address = vAddr2pmAddr[result];
-    return result;
+	pm_bucket* result = getNewBucket();
+	new_address = vAddr2pmAddr[result];
+	return result;
 }
 
 /**
@@ -393,16 +393,16 @@ void* PmEHash::getFreeSlot(pm_address& new_address) {
  * @return: NULL
  */
 void PmEHash::allocNewPage() {
-    metadata->max_file_id++;
-    data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
+	metadata->max_file_id++;
+	data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
 	page_list[metadata->max_file_id] = p;
-    pm_address temp = {metadata->max_file_id, 0};
-    for (int i = 0; i < 16; ++i) {
-        temp.offset = sizeof(pm_bucket) * i;
-        free_list.push(p->slot + i);
-        vAddr2pmAddr[p->slot + i] = temp;
-        pmAddr2vAddr[temp] = p->slot + i;
-    }
+	pm_address temp = {metadata->max_file_id, 0};
+	for (int i = 0; i < 16; ++i) {
+		temp.offset = sizeof(pm_bucket) * i;
+		free_list.push(p->slot + i);
+		vAddr2pmAddr[p->slot + i] = temp;
+		pmAddr2vAddr[temp] = p->slot + i;
+	}
 }
 
 /**
@@ -439,9 +439,9 @@ void PmEHash::mapAllPage() {
 	//map page
 	for (uint64_t i = 1; i <= metadata->max_file_id; ++i) {
 		std::string page_location = PM_EHASH_DIRECTORY + std::to_string(i);
-    	data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
+		data_page * p = reinterpret_cast<data_page*>(pmem_map_file(page_location.c_str(), sizeof(data_page), PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		page_list[i] = p;
-		
+
 		pm_address temp = {i, 0};
 		for (int j = 0; j < 16; ++j) {
 			temp.offset = sizeof(pm_bucket) * j;
@@ -479,5 +479,5 @@ void PmEHash::selfDestory() {
 
 	//delete all file
 	std::string rm_cmd = "rm " + std::string(PM_EHASH_DIRECTORY) + "*";
-    system(rm_cmd.c_str());
+	system(rm_cmd.c_str());
 }
