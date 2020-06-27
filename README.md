@@ -12,6 +12,13 @@ The persistent storage of Extendible hash
 * 周圆、马靖成使用FIO测试
 
 ## task2
+
+### DB_project分支：
+Master，默认分支，完成项目基本要求和主要功能；
+Test，测试分支，完成自行构造的测试；
+Optimization，优化分支，所有优化项目的实现。
+
+### 成员分工：
 * 罗炜乐：
 	* 函数实现
 		* data_page
@@ -32,6 +39,7 @@ The persistent storage of Extendible hash
 		* 使用位域代替原有的位图，以减少原本获得位或者置位函数的重复调用
 		* ~~目测~~创建映射所花费的时间比较多，对大规模插入不太友好，尝试增加页的大小以较少创建新页次数
 		* 使用编译器优化
+		
 * 马靖成:
 	* 函数实现
 		* 编写和测试ycsb.cpp
@@ -39,7 +47,9 @@ The persistent storage of Extendible hash
 		* void splitBucket(uint64_t bucket_id);
 		* void mergeBucket(uint64_t bucket_id);
 		* pm_bucket* getFreeBucket(uint64_t key);
-	* 修了mergeBucket的bug  
+		* 修了mergeBucket的bug  
+	* 优化实现
+	
 
 * 周圆：
 	* 函数实现
@@ -49,3 +59,4 @@ The persistent storage of Extendible hash
 		* int search(uint64_t key, uint64_t& return_val);
 	* 写报告
 	* 构建测试
+	* 优化实现
