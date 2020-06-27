@@ -221,7 +221,14 @@ pm_bucket* PmEHash::getNewBucket() {
 
 void PmEHash::freeEmptyBucket(pm_bucket* bucket) {
     free_list.push(bucket);
+	//set bitmap
+    pm_address temp = vAddr2pmAddr[bucket];
+    uint32_t pos = temp.offset / sizeof(pm_bucket);
+    temp.offset = 0;
+    data_page* page_virtual_address = reinterpret_cast<data_page*>(pmAddr2vAddr[temp]);
+    setBitToBitmap(page_virtual_address->bitmap, pos, false);
 }
+
 
 
 /**
