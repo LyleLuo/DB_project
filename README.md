@@ -2,7 +2,7 @@
 The persistent storage of Extendible hash
 
 使用方法：
-* 在include同级目录创建data文件夹。 make data
+* 在include同级目录创建data文件夹。 mkdir data
 * 修改include/pm_ehash_struct.h里PM_EHASH_DIRECTORY，文件夹名字是data，将其改为与include在同一级目录（比如include在/mnt/pmem0/DB_project/include就要设为/mnt/pmem0/DB_project/data/）
 * 直接进入test文件夹（测试gtest）或者src文件夹（测试ycsb）目录make即可，然后再进入bin文件夹执行二进制文件。
 
