@@ -47,7 +47,7 @@ PmEHash::PmEHash() {
 		catalog.buckets_pm_address = reinterpret_cast<pm_address*>(pmem_map_file(catalog_location.c_str(), \
         	sizeof(pm_address) * DEFAULT_CATALOG_SIZE, PMEM_FILE_CREATE, 0777, nullptr, nullptr));
 		catalog.buckets_virtual_address = new pm_bucket*[DEFAULT_CATALOG_SIZE];
-		for (int i = 0; i < 16; ++i) {
+		for (int i = 0; i < 64; ++i) {
 			if (!(i % 2)) {
 				catalog.buckets_pm_address[i] = vAddr2pmAddr[first_page];
 				catalog.buckets_virtual_address[i] = first_page;
@@ -400,7 +400,7 @@ void PmEHash::allocNewPage() {
     data_page * p = reinterpret_cast<data_page*>(createNewPage(metadata->max_file_id));
 	page_list[metadata->max_file_id] = p;
     pm_address temp = {metadata->max_file_id, 0};
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < 64; ++i) {
         temp.offset = sizeof(pm_bucket) * i;
         free_list.push(p->slot + i);
         vAddr2pmAddr[p->slot + i] = temp;
@@ -446,7 +446,7 @@ void PmEHash::mapAllPage() {
 		page_list[i] = p;
 		
 		pm_address temp = {i, 0};
-		for (int j = 0; j < 16; ++j) {
+		for (int j = 0; j < 64; ++j) {
 			temp.offset = sizeof(pm_bucket) * j;
 
 			if (!getBitFromBitmap(p->bitmap, j)) {
