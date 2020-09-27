@@ -1,6 +1,5 @@
-# DB_project
-The persistent storage of Extendible hash
-中山大学2020春《数据库系统》课程设计
+# 中山大学2020春《数据库系统》课程设计
+The persistent storage of Extendible hash  
 使用NVM实现可扩展哈希
 
 使用方法：
