@@ -160,7 +160,7 @@ gtest是谷歌的C单元测试的框架，能对我们的项目进行简单的�
 项目介绍有不懂的地方向TA请教，普遍性问题我会更新说明文档，但是如果文档有说明的地方就别再问了。
 
 # 中山大学2020春《数据库系统》课程设计
-The persistent storage of Scalable hash  
+The persistent storage of  EExtendible hash  
 使用NVM实现可扩展哈希
 
 使用方法：
